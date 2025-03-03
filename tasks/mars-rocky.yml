@@ -1,0 +1,56 @@
+---
+- name: Ensure EPEL repo is enabled
+  ansible.builtin.dnf:
+    name: epel-release
+    state: latest
+
+- name: Enable CRB for RHEL-based 9+ platforms
+  when: ansible_distribution_major_version|int > 8
+
+  block:
+    - name: Check if CRB is enabled
+      ansible.builtin.command:
+        cmd: dnf repolist crb --enabled
+      register: repolist
+      changed_when: false
+
+    - name: Enable CRB repository
+      ansible.builtin.command:
+        cmd: dnf config-manager --enable crb
+      when: "'crb' not in repolist.stdout"
+
+- name: Enable PowerTools for RHEL 8
+  ansible.builtin.yum_repository:
+    name: powertools
+    state: present
+  when: ansible_distribution_major_version|int == 8
+
+- name: Add ECMWF repository
+  ansible.builtin.yum_repository:
+    name: ecmwf
+    description: ECMWF Repository
+    baseurl: "{{ repo_base }}/repository/private-rocky-{{ repo_suffix }}/{{ ansible_distribution_major_version }}/{{ ansible_distribution_version.split('.')[1] }}/rpms"
+    gpgcheck: true
+    enabled: true
+
+- name: Check if MARS servers can be reached (ECMWF only)
+  ansible.builtin.getent:
+    database: hosts
+    key: marsod.ecmwf.int
+  register: marsod_lookup
+  ignore_errors: true
+
+- name: Trust the traffic coming from the ECMWF LAN in the local firewall
+  ansible.posix.firewalld:
+    zone: trusted
+    source: 10.0.0.0/8
+    state: enabled
+    permanent: true
+    immediate: true
+  when: marsod_lookup.ansible_facts.getent_hosts is defined 
+
+- name: "Install MARS client"
+  ansible.builtin.dnf:
+    name: mars-client-cloud
+    disable_gpg_check: true
+    state: latest

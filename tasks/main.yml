@@ -1,0 +1,5 @@
+---
+- tags: mars
+  block:
+    - name: Install Mars
+      ansible.builtin.include_tasks: mars-{{ ansible_distribution | lower }}.yml
