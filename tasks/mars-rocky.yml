@@ -4,26 +4,31 @@
     name: epel-release
     state: latest
 
-- name: Enable CRB for RHEL-based 9+ platforms
-  when: ansible_distribution_major_version|int > 8
+- name: Extra repo name
+  ansible.builtin.set_fact:
+    extra_repo: "{{ 'crb' if ansible_distribution_major_version|int > 8 else 'powertools' }}" 
 
-  block:
-    - name: Check if CRB is enabled
-      ansible.builtin.command:
-        cmd: dnf repolist crb --enabled
-      register: repolist
-      changed_when: false
+- name: "Check if {{ extra_repo }} is enabled"
+  ansible.builtin.command:
+    cmd: "dnf repolist {{ extra_repo }} --enabled"
+  register: repolist
+  changed_when: false
 
-    - name: Enable CRB repository
-      ansible.builtin.command:
-        cmd: dnf config-manager --enable crb
-      when: "'crb' not in repolist.stdout"
+- name: "Enable {{ extra_repo }} repository"
+  ansible.builtin.command:
+    cmd: "dnf config-manager --enable {{ extra_repo }}"
+  when: extra_repo not in repolist.stdout
 
-- name: Enable PowerTools for RHEL 8
-  ansible.builtin.yum_repository:
-    name: powertools
+- name: Copy GPG Key to Remote Host
+  ansible.builtin.copy:
+    src: ewc-rocky-gpg-key
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-ewc-ecmwf-packages
+    mode: '0644'
+
+- name: Import EWC Packages GPG Key
+  ansible.builtin.rpm_key:
     state: present
-  when: ansible_distribution_major_version|int == 8
+    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-ewc-ecmwf-packages
 
 - name: Add ECMWF repository
   ansible.builtin.yum_repository:
@@ -52,5 +57,4 @@
 - name: "Install MARS client"
   ansible.builtin.dnf:
     name: mars-client-cloud
-    disable_gpg_check: true
     state: latest
