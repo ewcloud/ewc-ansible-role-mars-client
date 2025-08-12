@@ -1,5 +1,6 @@
 ---
-- hosts: all
-  become: yes
+- name: Test role
+  hosts: all
+  become: true
   roles:
     - ewc-ansible-role-mars-client

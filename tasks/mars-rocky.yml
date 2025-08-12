@@ -6,23 +6,25 @@
 
 - name: Extra repo name
   ansible.builtin.set_fact:
-    extra_repo: "{{ 'crb' if ansible_distribution_major_version|int > 8 else 'powertools' }}" 
+    extra_repo: "{{ 'crb' if ansible_distribution_major_version | int > 8 else 'powertools' }}"
 
-- name: "Check if {{ extra_repo }} is enabled"
+- name: "Check if extra repository is enabled {{ extra_repo }}"
   ansible.builtin.command:
     cmd: "dnf repolist {{ extra_repo }} --enabled"
   register: repolist
   changed_when: false
 
-- name: "Enable {{ extra_repo }} repository"
+- name: "Enable repository {{ extra_repo }} "
   ansible.builtin.command:
     cmd: "dnf config-manager --enable {{ extra_repo }}"
+  register: cmd_output
+  changed_when: cmd_output.rc != 0
   when: extra_repo not in repolist.stdout
 
 - name: Import EWC Packages GPG Key
   ansible.builtin.rpm_key:
     state: present
-    key: https://nexus.ecmwf.int/repository/private-raw-repos-config/rocky/keys/ewc-rocky-gpg-key 
+    key: https://nexus.ecmwf.int/repository/private-raw-repos-config/rocky/keys/ewc-rocky-gpg-key
 
 - name: Add ECMWF repository
   ansible.builtin.yum_repository:
@@ -46,7 +48,7 @@
     state: enabled
     permanent: true
     immediate: true
-  when: marsod_lookup.ansible_facts.getent_hosts is defined 
+  when: marsod_lookup.ansible_facts.getent_hosts is defined
 
 - name: "Install MARS client"
   ansible.builtin.dnf:
